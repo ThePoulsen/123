@@ -62,7 +62,7 @@ def changePasswordView():
 
 @flask_sijax.route(userBP, '/user', methods=['GET'])
 @flask_sijax.route(userBP, '/user/<string:function>', methods=['GET', 'POST'])
-@flask_sijax.route(userBP, '/user/<string:function>/<int:uuid>', methods=['GET', 'POST'])
+@flask_sijax.route(userBP, '/user/<string:function>/<string:uuid>', methods=['GET', 'POST'])
 @requiredRole(u'Administrator')
 @loginRequired
 def userView(uuid=None, function=None):
@@ -94,33 +94,25 @@ def userView(uuid=None, function=None):
                 elif r['title'] == 'Superuser':
                     role = 'Superuser'
             grpForm = groupForm()
-            usrForm = userForm(name = usr['userName'],
-                            email = usr['userEmail'],
-                            phone = usr['userPhone'],
-                            groups = [str(r['uuid']) for r in usr['userGroups']],
-                            role = role)
+            usrForm = userForm(userName = usr['name'],
+                            userEmail = usr['email'],
+                            userPhone = usr['phone'],
+                            userGroups = [str(r['uuid']) for r in usr['groups']],
+                            userRole = role)
 
             # Get all groups
-            usrForm.groups.choices = [(str(r['uuid']),r['name']) for r in getGroups()['userGroups']]
-
+            usrForm.userGroups.choices = [(str(r['uuid']),r['name']) for r in getGroups()['groups']]
             if g.sijax.is_sijax_request:
                 g.sijax.register_object(SijaxHandler)
                 return g.sijax.process_request()
 
             if usrForm.validate_on_submit():
-                dataDict = {'name':usrForm.userName.data,
-                            'email':usrForm.userEmail.data,
-                            'phone':usrForm.userPhone.data}
+                dataDict = {'name': usrForm.userName.data,
+                            'email': usrForm.userEmail.data,
+                            'phone': usrForm.userPhone.data,
+                            'roles': [usrForm.userRole.data],
+                            'groups': usrForm.userGroups.data}
 
-                roles = ['User']
-                if usrForm.userRole.data == 'Superuser':
-                    roles.append('Superuser')
-                elif usrForm.userRole.data == 'Administrator':
-                    roles.append('Superuser')
-                    roles.append('Administrator')
-
-                dataDict['userRoles'] = roles
-                dataDict['userGroups'] = usrForm.userGroups.data
                 updateUser = putUser(dataDict=dataDict, uuid=uuid)
                 if not 'error' in updateUser:
                     apiMessage(updateUser)
@@ -179,10 +171,10 @@ def userView(uuid=None, function=None):
 # Group View
 @userBP.route('/group', methods=['GET'])
 @userBP.route('/group/<string:function>', methods=['GET', 'POST'])
-@userBP.route('/group/<string:function>/<int:id>', methods=['GET', 'POST'])
+@userBP.route('/group/<string:function>/<string:uuid>', methods=['GET', 'POST'])
 @loginRequired
 @requiredRole(u'Administrator')
-def groupView(function=None, id=None):
+def groupView(function=None, uuid=None):
     # global variables
     kwargs = {'title':'User groups',
               'width':'600',
@@ -195,12 +187,12 @@ def groupView(function=None, id=None):
         req = getGroups(includes=['includeUsers'])['groups']
 
         # set data for listView
-        kwargs['tableData'] = [[r['id'],r['name'], r['desc'],len(r['users'])] for r in req]
+        kwargs['tableData'] = [[r['uuid'],r['name'], r['desc'],len(r['users'])] for r in req]
 
         # return view
         return render_template('listView.html', **kwargs)
     elif function == 'delete':
-        delGroup = deleteGroup(id)
+        delGroup = deleteGroup(uuid)
         apiMessage(delGroup)
 
         return redirect(url_for('userBP.groupView'))
@@ -208,16 +200,16 @@ def groupView(function=None, id=None):
     else:
         if function == 'update':
             # Get single group
-            grp = getGroup(id, includes=['includeUsers'])
+            grp = getGroup(uuid, includes=['includeUsers'])['group']
             form = groupForm(groupName=grp['name'],
                              groupDesc=grp['desc'],
-                             groupUsers = [str(r['id']) for r in grp['users']])
-            form.groupUsers.choices = [(str(r['id']),r['email']) for r in getUsers()['users']]
+                             groupUsers = [unicode(r['uuid']) for r in grp['users']])
+            form.groupUsers.choices = [(unicode(r['uuid']),r['email']) for r in getUsers()['users']]
             if form.validate_on_submit():
                 dataDict = {'name':form.groupName.data,
                             'desc':form.groupDesc.data,
-                            'users':[int(r) for r in form.groupUsers.data]}
-                updateGroup = putGroup(dataDict=dataDict, id=id)
+                            'users':[unicode(r) for r in form.groupUsers.data]}
+                updateGroup = putGroup(dataDict=dataDict, uuid=uuid)
                 if 'error' in updateGroup:
                     apiMessage(updateGroup)
                 else:
@@ -226,12 +218,12 @@ def groupView(function=None, id=None):
 
         elif function == 'new':
             form = groupForm()
-            form.groupUsers.choices = [(str(r['id']),r['email']) for r in getUsers()['users']]
+            form.groupUsers.choices = [(unicode(r['uuid']),r['email']) for r in getUsers()['users']]
 
             if form.validate_on_submit():
                 dataDict = {'name':form.groupName.data,
                             'desc':form.groupDesc.data,
-                            'users':[int(r) for r in form.groupUsers.data]}
+                            'users':[unicode(r) for r in form.groupUsers.data]}
                 newGroup = postGroup(dataDict)
                 if 'error' in newGroup:
                     apiMessage(newGroup)

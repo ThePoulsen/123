@@ -7,19 +7,19 @@ def getUsers(includes=None):
     if includes:
         includeString = '?'
         for r in includes:
-            includeString = includeString + str(r) + str('=True&')
+            includeString = includeString + unicode(r) + unicode('=True&')
         return authAPI(endpoint='user'+includeString, method='get', token=session['token'])
     else:
         return authAPI(endpoint='user', method='get', token=session['token'])
 
-def getUser(id, includes=None):
+def getUser(uuid, includes=None):
     if includes:
         includeString = '?'
         for r in includes:
-            includeString = includeString + str(r) + str('=True&')
-        return authAPI(endpoint='user/'+str(id)+includeString, method='get', token=session['token'])
+            includeString = includeString + unicode(r) + unicode('=True&')
+        return authAPI(endpoint='user/'+unicode(uuid)+includeString, method='get', token=session['token'])
     else:
-        return authAPI(endpoint='user/'+str(id), method='get', token=session['token'])
+        return authAPI(endpoint='user/'+unicode(uuid), method='get', token=session['token'])
 
 def postUser(dataDict):
     req = authAPI(endpoint='user', method='post', dataDict=dataDict, token=session['token'])
@@ -48,11 +48,11 @@ def postUser(dataDict):
         elif req['error'] == 'Invalid access token':
             return {'error':req['error']}
 
-def putUser(dataDict, id):
-    return authAPI(endpoint='user/'+str(id), method='put', dataDict=dataDict, token=session['token'])
+def putUser(dataDict, uuid):
+    return authAPI(endpoint='user/'+unicode(uuid), method='put', dataDict=dataDict, token=session['token'])
 
-def deleteUser(id):
-    return authAPI(endpoint='user/'+str(id), method='delete', token=session['token'])
+def deleteUser(uuid):
+    return authAPI(endpoint='user/'+unicode(uuid), method='delete', token=session['token'])
 
 def getContactPerson():
     return authAPI(endpoint='contactPerson', method='post', token=session['token'])['success']

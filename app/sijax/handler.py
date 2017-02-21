@@ -48,7 +48,7 @@ class SijaxHandler(object):
         else:
             grp = postGroup(dataDict)
             if 'success' in grp:
-                groupID = grp['id']
+                groupID = grp['uuid']
                 for r in required:
                     obj_response.html('#'+r+'Validator', '')
                 obj_response.script("$('#newGroupFrom')[0].reset();")
