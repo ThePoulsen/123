@@ -17,7 +17,7 @@
                             <p>{{error}}</p>
                         {% endfor %}
                         {{ form.companyName.label }}
-                        {{ form.companyName(readonly=True, class_='form-control ')}}<br>
+                        {{ form.companyName(class_='form-control ')}}<br>
                         {% for error in form.companyName.errors %}
                             <p>{{error}}</p>
                         {% endfor %}
@@ -46,10 +46,11 @@
                     <div class="col-md-6 col-sm-6 col-xs-6">
                         <h3>Contact</h3>
                         {{ form.contactName.label }}
-                        {{ form.contactName(class_='form-control')}}<br>
+                        {{ form.contactName(class_='form-control', onclick="Sijax.request('getContact')")}}<br>
                         {% for error in form.contactName.errors %}
                             <p>{{error}}</p>
                         {% endfor %}
+                        <br>
                         {{ form.phone.label }}
                         {{ form.phone(readonly=True, class_='form-control')}}<br>
                         {% for error in form.phone.errors %}
@@ -76,4 +77,6 @@
 {% endblock %}
 {% block foot %}
 {{ super() }}
+<script type="text/javascript" src="/static/js/sijax/sijax.js"></script>
+<script type="text/javascript">{{ g.sijax.get_js()|safe }}</script>
 {% endblock %}

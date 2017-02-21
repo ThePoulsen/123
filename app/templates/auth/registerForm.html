@@ -20,7 +20,7 @@
         <p>{{error}}</p>
     {% endfor %}
     {{ form.companyName.label }}
-    {{ form.companyName(readonly=True, class_='form-control ')}}<br>
+    {{ form.companyName(class_='form-control ')}}<br>
     {% for error in form.companyName.errors %}
         <p>{{error}}</p>
     {% endfor %}

@@ -8,6 +8,7 @@ from app.sijax.handler import SijaxHandler
 from authAPI import authAPI
 from app.crud.groupCRUD import getGroups, postGroup, deleteGroup, getGroup, putGroup
 from app.crud.userCRUD import getUsers, getUser, postUser, putUser, deleteUser
+from services import usersTable
 
 userBP = Blueprint('userBP', __name__, template_folder='templates')
 
@@ -30,27 +31,41 @@ def changePasswordView():
     form = changePasswordForm()
 
     if form.validate_on_submit():
-
         dataDict = {'password':form.password.data}
 
         req = authAPI(endpoint='changePassword', method='put', dataDict=dataDict, token=session['token'])
-        apiMessage(req)
+        if 'error' in req:
+            if req['error'] == 'Could not identify access token':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Could not identify Platform':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Request data incomplete':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Illegal null values present in request data':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Invalid access token':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Invalid server error':
+                errorMessage(req['error'])
+            else:
+                errorMessage(req['error'])
+
+        else:
+            successMessage('Your password has been changed')
 
     return render_template('user/changePasswordForm.html', form=form, **kwargs)
 
-# Reset password
-@userBP.route('/resetPassword', methods=['GET','POST'])
-@requiredRole('User')
-@loginRequired
-def resetPasswordView():
-    pass
-
 @flask_sijax.route(userBP, '/user', methods=['GET'])
 @flask_sijax.route(userBP, '/user/<string:function>', methods=['GET', 'POST'])
-@flask_sijax.route(userBP, '/user/<string:function>/<int:id>', methods=['GET', 'POST'])
+@flask_sijax.route(userBP, '/user/<string:function>/<int:uuid>', methods=['GET', 'POST'])
 @requiredRole(u'Administrator')
 @loginRequired
-def userView(id=None, function=None):
+def userView(uuid=None, function=None):
     # universal variables
     form = userForm()
     kwargs = {'title':'Users',
@@ -59,31 +74,18 @@ def userView(id=None, function=None):
 
     # Get users
     if function == None:
-        users = getUsers(includes=['includeRoles', 'includeGroups'])['users']
-
-        tableData = []
-        for u in users:
-            roles = ''
-            for r in u['roles']:
-                roles = roles + str(r['title']) +'<br>'
-            groups = ''
-            for gr in u['groups']:
-                groups = groups + str(gr['name']) +'<br>'
-            temp = [u['id'],u['name'],u['email'], roles, groups]
-            tableData.append(temp)
-
         kwargs['tableColumns'] =['User name','Email','Roles','Groups']
-        kwargs['tableData'] = tableData
-
+        kwargs['tableData'] = usersTable()
         return render_template('listView.html', **kwargs)
+
     elif function == 'delete':
-        delUsr = deleteUser(id)
+        delUsr = deleteUser(uuid)
         apiMessage(delUsr)
 
         return redirect(url_for('userBP.userView'))
     else:
         if function == 'update':
-            usr = getUser(id=id, includes=['includeRoles', 'includeGroups'])['user']
+            usr = getUser(uuid=uuid, includes=['includeRoles', 'includeGroups'])['user']
             kwargs['contentTitle'] = 'Update user'
             role = 'User'
             for r in usr['roles']:
@@ -95,11 +97,11 @@ def userView(id=None, function=None):
             usrForm = userForm(name = usr['userName'],
                             email = usr['userEmail'],
                             phone = usr['userPhone'],
-                            groups = [str(r['id']) for r in usr['userGroups']],
+                            groups = [str(r['uuid']) for r in usr['userGroups']],
                             role = role)
 
             # Get all groups
-            usrForm.groups.choices = [(str(r['id']),r['name']) for r in getGroups()['userGroups']]
+            usrForm.groups.choices = [(str(r['uuid']),r['name']) for r in getGroups()['userGroups']]
 
             if g.sijax.is_sijax_request:
                 g.sijax.register_object(SijaxHandler)
@@ -119,7 +121,7 @@ def userView(id=None, function=None):
 
                 dataDict['userRoles'] = roles
                 dataDict['userGroups'] = usrForm.userGroups.data
-                updateUser = putUser(dataDict=dataDict, id=id)
+                updateUser = putUser(dataDict=dataDict, uuid=uuid)
                 if not 'error' in updateUser:
                     apiMessage(updateUser)
                     return redirect(url_for('userBP.userView'))
@@ -130,9 +132,9 @@ def userView(id=None, function=None):
         elif function == 'new':
             usrForm = userForm(userRole='User')
             grpForm = groupForm()
-            grpForm.groupUsers.choices = [(str(r['id']),r['email']) for r in getUsers()['users']]
+            grpForm.groupUsers.choices = [(str(r['uuid']),r['email']) for r in getUsers()['users']]
             kwargs['contentTitle'] = 'New user'
-            groups = [(str(r['id']),r['name']) for r in getGroups()['groups']]
+            groups = [(str(r['uuid']),r['name']) for r in getGroups()['groups']]
             usrForm.userGroups.choices = groups
 
             if g.sijax.is_sijax_request:
@@ -154,8 +156,8 @@ def userView(id=None, function=None):
                 dataDict['roles'] = roles
                 dataDict['groups'] = usrForm.userGroups.data
                 newUser = postUser(dataDict)
-                if not 'error' in newUser:
-                    apiMessage(newUser)
+                if 'success' in newUser:
+                    successMessage('The user has been created')
                     subject = u'Confirm signup'
                     confirm_url = url_for('authBP.confirmEmailView',token=newUser['token'], _external=True)
                     html = render_template('email/verify.html', confirm_url=confirm_url)

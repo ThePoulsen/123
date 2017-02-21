@@ -2,6 +2,7 @@
 import json
 from services import sijaxSuccess
 from app.crud.groupCRUD import postGroup, checkGroup
+from app.crud.userCRUD import getUser
 
 class SijaxHandler(object):
     """A container class for all Sijax handlers.
@@ -11,7 +12,12 @@ class SijaxHandler(object):
     """
 
     @staticmethod
+    def getContact(obj_response):
+#        usr = getUser(uuid)
+        print 'usr.name'
 
+
+    @staticmethod
     def userFormGroupModal(obj_response, values):
         required=['groupName','groupDesc']
 

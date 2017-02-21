@@ -1,6 +1,6 @@
 ## -*- coding: utf-8 -*-
 from flask import Blueprint, session, render_template, url_for, jsonify, json, g, redirect
-from app.admin.services import sendMail, loginRequired, logoutUser, requiredRole, successMessage, errorMessage, apiMessage
+from app.admin.services import sendMail, loginRequired, requiredRole, successMessage, errorMessage, apiMessage
 from forms import registerForm, setPasswordForm, loginForm
 import requests
 from authAPI import authAPI
@@ -8,7 +8,7 @@ from authAPI import authAPI
 authBP = Blueprint('authBP', __name__, template_folder='templates')
 
 # register
-@authBP.route('/register')
+@authBP.route('/register', methods=['GET','POST'])
 def registerView():
     if not 'token' in session:
         # universal variables
@@ -24,27 +24,34 @@ def registerView():
 
             req = authAPI('register', method='post', dataDict=dataDict)
 
-            if r.status_code == 409:
-                errorMessage('accountExists')
-            elif r.status_code == 404:
-                errorMessage('cvrCheckError')
-            elif 'error' in req:
-                if req['error'] == 'Not valid email-address':
-                    errorMessage('validateEmail')
+            if 'error' in req:
+                if req['error'] == 'Could not identify Platform':
+                    errorMessage(req['error'])
+                elif req['error'] == 'Request data incomplete':
+                    errorMessage(req['error'])
+                elif req['error'] == 'Reg/VAT number already exist':
+                    errorMessage('An account using this Reg/VAT number already exist')
+                elif req['error'] == 'Invalid email-address':
+                    errorMessage(req['error'])
+                elif req['error'] == 'Illegal null values present in request data':
+                    errorMessage(req['error'])
+                elif req['error'] == 'Internal server error':
+                    errorMessage(req['error'])
+
             elif 'success' in req:
                 # send email confirmation
-                subject = u'Bekræft tilmelding'
+                subject = u'Please confirm your account'
                 tok = req['token']
                 email = req['email']
                 confirm_url = url_for('authBP.confirmEmailView',token=tok, _external=True)
                 html = render_template('email/verify.html', confirm_url=confirm_url)
-    #
+
                 sendMail(subject=subject,
                          sender='Henrik Poulsen',
                          recipients=[email],
                          html_body=html,
                          text_body = None)
-                successMessage('loginSuccess')
+                successMessage('You have successfully registered your account, please check your email for confirmation.')
                 return redirect(url_for('indexView'))
 
         return render_template('auth/registerForm.html', form=form, **kwargs)
@@ -58,20 +65,29 @@ def confirmEmailView(token):
     session.clear()
     req = authAPI('confirm', method='post', token=token)
     if 'error' in req:
-        if req['error'] == 'User already confirmed':
-            if req['mustSetPass'] == 'True':
-                successMessage('Account confirmed, please set new password (the password your enter here will be your new password to the system)')
-                return redirect(url_for('authBP.setPasswordView', tok=req['token']))
-            else:
-                errorMessage('Your profile has already been confirmed')
+        if req['error'] == 'Could not identify access token':
+            errorMessage(req['error'])
+
+        elif req['error'] == 'Could not identify Platform':
+            errorMessage(req['error'])
+
+        elif req['error'] == 'User must set password':
+            errorMessage('Please set your password')
+            return redirect(url_for('authBP.setPasswordView', tok=req['token']))
+
+        elif req['error'] == 'User already confirmed':
+            errorMessage('Your profile has already been confirmed')
+            return redirect(url_for('indexView'))
+
         else:
             errorMessage(req['error'])
 
     elif 'success' in req:
         if req['mustSetPass'] == 'True':
+            successMessage('Your profile has been confirmed, please set your new password')
             return redirect(url_for('authBP.setPasswordView', tok=req['token']))
         else:
-            successMessage('Your profile has already been confirmed')
+            successMessage('Your profile has been confirmed, please login')
             return redirect(url_for('authBP.loginView'))
 
     return redirect(url_for('indexView'))
@@ -80,7 +96,8 @@ def confirmEmailView(token):
 
 @authBP.route('/setPassword/<string:tok>', methods=['GET','POST'])
 def setPasswordView(tok):
-    session.clear()
+    if session['token']:
+        session['token'] = None
     kwargs = {'formWidth':300,
               'title':'Set new password'}
 
@@ -88,13 +105,26 @@ def setPasswordView(tok):
 
     if form.validate_on_submit():
         dataDict={'password':form.password.data}
-
+        print form.password.data
         req = authAPI('setPassword', method='post', dataDict=dataDict, token=tok)
-
-        print str(req)
-
         if 'error' in req:
-            errorMessage(req['error'])
+            if req['error'] == 'Could not identify access token':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Could not identify Platform':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Request data incomplete':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Illegal null values present in request data':
+                errorMessage(req['error'])
+
+            elif req['error'] == 'Invalid access token':
+                errorMessage(req['error'])
+
+            else:
+                errorMessage(req['error'])
         elif 'success' in req:
             successMessage('Your password has now been set, please login')
             return redirect(url_for('authBP.loginView'))
@@ -125,8 +155,43 @@ def loginView():
                 session['roles'] = req['roles']
                 successMessage('You are now logged in')
                 return redirect(url_for('indexView'))
-            else:
-                errorMessage('User / password combination error')
+            elif 'error' in req:
+                if req['error'] == 'Could not identify access token':
+                    errorMessage(req['error'])
+
+                elif req['error'] == 'Could not identify Platform':
+                    errorMessage(req['error'])
+
+                elif req['error'] == 'Request data incomplete':
+                    errorMessage(req['error'])
+
+                elif req['error'] == 'Illegal null values present in request data':
+                    errorMessage(req['error'])
+
+                elif req['error'] == 'Invalid access token':
+                    errorMessage(req['error'])
+
+                elif req['error'] == 'Internal server error':
+                    errorMessage(req['error'])
+
+                elif req['error'] == 'User is locked out of the system due to multiple bad logins':
+                    errorMessage(req['error'])
+
+                elif req['error'] == 'Could not identify Tenant':
+                    errorMessage('We are not able to validate your credentials')
+
+                elif req['error'] == 'Could not identify User':
+                    errorMessage('We are not able to validate your credentials')
+
+                elif req['error'] == 'Wrong user/password combination':
+                    errorMessage(req['error']+' - Attempts left: '+req['attempts left'])
+
+                elif req['error'] == 'User must change password':
+                    session['token'] = req['token']
+                    session['email'] = req['email']
+                    session['roles'] = req['roles']
+                    errorMessage('Please change your password')
+                    return redirect(url_for('userBP.changePasswordView'))
 
         return render_template('auth/loginForm.html', form=form, **kwargs)
     else:
@@ -136,5 +201,23 @@ def loginView():
 # Logout
 @authBP.route('/logout', methods=['GET','POST'])
 def logoutView():
-    logoutUser()
+    logout = authAPI(endpoint='logout', method='post', token=session['token'])
+
+    if ['error'] in logout:
+        if req['error'] == 'Could not identify access token':
+            errorMessage(req['error'])
+
+        elif req['error'] == 'Could not identify Platform':
+            errorMessage(req['error'])
+
+        elif req['error'] == 'Internal server error':
+            errorMessage(req['error'])
+
+        elif req['error'] == 'Invalid access token':
+            errorMessage(req['error'])
+
+    else:
+        session.clear()
+        successMessage('You are now logged out of the system')
+
     return redirect(url_for('indexView'))

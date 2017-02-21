@@ -62,7 +62,7 @@ def requiredRole(*role):
         @wraps(f)
         def wrapped(*args, **kwargs):
             if not 'token' in session:
-                return redirect(url_for('authBP.loginView', lang=lang))
+                return redirect(url_for('authBP.loginView'))
             roles = getRoles()
             if roles:
                 if role[0] not in roles:
@@ -81,10 +81,6 @@ def loginRequired(f):
             return redirect(url_for('authBP.loginView'))
         return f(*args, **kwargs)
     return decorated_function
-
-def logoutUser():
-    session.clear()
-    successMessage('You are now logged out')
 
 #Error handlers
 @app.errorhandler(403)

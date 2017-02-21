@@ -5,6 +5,7 @@ from wtforms import StringField, SelectField, TextAreaField, PasswordField
 from wtforms.validators import InputRequired, Email
 
 class setPasswordForm(FlaskForm):
+    email = StringField('Email')
     password = PasswordField('Password', [InputRequired('Please enter a password')])
 
 class changePasswordForm(FlaskForm):
